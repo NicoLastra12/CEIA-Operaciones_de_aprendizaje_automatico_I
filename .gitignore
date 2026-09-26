@@ -1,0 +1,37 @@
+# --- Entorno de Python (uv) --------------------------------------------------
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+ 
+# --- Jupyter -----------------------------------------------------------------
+.ipynb_checkpoints/
+ 
+# --- airflow/: lo que genera Airflow mientras corre --------------------------
+# Se ignora el contenido pero se conserva la carpeta con un .gitkeep,
+# porque logs/, config/ y plugins/ tienen que existir antes de levantar Docker.
+airflow/logs/*
+!airflow/logs/.gitkeep
+airflow/config/*
+!airflow/config/.gitkeep
+ 
+# --- MLflow local ------------------------------------------------------------
+# Aparecen si alguien loguea un run sin apuntar al servidor (localhost:5001)
+mlruns/
+mlartifacts/
+ 
+# --- Datos y modelos ---------------------------------------------------------
+data/
+*.csv
+*.parquet
+*.pkl
+*.joblib
+ 
+# --- Editores y sistema operativo --------------------------------------------
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+ 

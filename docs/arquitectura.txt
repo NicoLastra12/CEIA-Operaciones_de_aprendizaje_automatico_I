@@ -1,0 +1,41 @@
+CEIA-Operaciones_de_aprendisaje_automatico_I/
+│
+├── airflow/                           
+│   ├── dags/
+│   │   ├── dag_prueba.py           
+│   │   └── utils/       
+│   │                       
+│   ├── secrets/
+│   │   ├── variables.yaml            
+│   │   └── connections.yaml
+│   ├── plugins/
+│   ├── config/
+│   └── logs/                         
+│
+├── dockerfiles/                      
+│   ├── airflow/
+│   │   ├── Dockerfile
+│   │   └── requirements.txt          
+│   ├── fastapi/
+│   │   ├── Dockerfile
+│   │   ├── requirements.txt          
+│   │   └── app.py                    
+│   ├── mlflow/
+│   │   ├── Dockerfile               
+│   │   └── requirements.txt
+│   └── postgres/
+│       └── Dockerfile
+│
+├── notebooks/                       
+│   └──00_prueba_conexion.ipynb
+│  
+│
+├── docs/  
+│   └── arquitectura.txt
+│
+├── pyproject.toml                    
+├── uv.lock                         
+├── docker-compose.yaml               
+├── .env
+├── .gitignore
+└── README.md
