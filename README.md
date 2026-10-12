@@ -36,15 +36,11 @@ Proyecto basado en el template [amq2-service-ml](https://github.com/facundolucia
 
 ## Puesta en marcha rápida
 
-**Requisitos:** Docker (Docker Desktop en Windows o Mac) con al menos **4 GB de RAM** asignados (recomendado 6–8 GB) y unos 10 GB de disco libre.
-
 ```bash
-git clone https://github.com/NicoLastra12/CEIA-Operaciones_de_aprendizaje_automatico_I.git
-cd CEIA-Operaciones_de_aprendizaje_automatico_I
-docker compose --profile all up -d --build
+git clone <url-del-repo>
+cd <carpeta-del-repo>
+docker compose --profile all up -d
 ```
-
-> En Linux o macOS, antes de levantar, poner en `.env` el UID de tu usuario (`id -u`) en `AIRFLOW_UID`. Si no, Airflow deja sus carpetas como root y no se pueden editar los DAGs.
 
 La primera vez tarda varios minutos en construir las imágenes. Después **no hay que ejecutar nada a mano**: Airflow descarga el dataset, busca hiperparámetros, entrena y pone un modelo en producción solo. En 5 a 10 minutos (según la conexión y la PC), la API está lista:
 
@@ -450,9 +446,6 @@ Todavía no hay modelo con alias `champion`. Esperar a que termine el pipeline a
 
 **Un DAG aparece con error de import (cartel rojo arriba en Airflow).**
 Revisar que estén todos los archivos de `airflow/dags/`, en especial `common/__init__.py`. Desde la terminal: `docker compose exec airflow-scheduler airflow dags list-import-errors`.
-
-**Una tarea muere sin un error claro, o el worker se reinicia.**
-Probablemente falta memoria: el ETL procesa 1,5 millones de filas. Subir la RAM de Docker Desktop a 6–8 GB en *Settings → Resources*.
 
 **Cambié un DAG o `utils/` y no se refleja.**
 Las carpetas se montan en vivo: Airflow relee los archivos modificados en unos segundos, pero puede tardar hasta 5 minutos en descubrir archivos **nuevos**. Si cambiaste un `Dockerfile` o un `requirements`, hace falta `docker compose --profile all up -d --build`.
