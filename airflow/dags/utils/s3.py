@@ -12,7 +12,7 @@ import pandas as pd
 
 def _bucket_and_key(path: str) -> tuple[str, str]:
     """Separa "s3://bucket/carpeta/archivo" en ("bucket", "carpeta/archivo")."""
-
+    
     bucket, key = path.removeprefix("s3://").split("/", 1)
     return bucket, key
 
@@ -60,7 +60,7 @@ def write_parquet(df: pd.DataFrame, path: str) -> str:
     Returns:
         La misma ruta, para devolverla desde la tarea y pasarla a la siguiente.
     """
-    
+
     bucket, key = _bucket_and_key(path)
     buf = io.BytesIO()
     df.to_parquet(buf, index=False)

@@ -4,6 +4,7 @@ Pipeline del modelo de recaudación y manejo de champion/challenger en MLflow.
 El "champion" es la versión del modelo en producción (la que usa la API) y el "challenger"
 es un modelo recién entrenado que compite contra él. Son alias del Model Registry de MLflow.
 """
+
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer, TransformedTargetRegressor
@@ -11,19 +12,13 @@ from sklearn.metrics import mean_absolute_error
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
 from xgboost import XGBRegressor
-
 from utils import config, s3
 
-# Grupos de features (ver data.make_features). Las columnas gen_* se detectan por prefijo.
+
 SKEWED = ["budget", "popularity", "vote_count", "n_companias"]
 NUMERIC = ["runtime", "vote_average", "anio"]
 CATEGORICAL = ["idioma"]
-
-# Hiperparámetros cuando todavía no hay champion del cual copiarlos
 DEFAULT_PARAMS = {"random_state": config.RANDOM_STATE, "n_jobs": -1}
-
-# MLflow guarda los modelos de sklearn con skops, que solo carga tipos que considera
-# seguros. XGBoost no está en su lista, así que hay que declararlo.
 SKOPS_TRUSTED_TYPES = ["xgboost.core.Booster", "xgboost.sklearn.XGBRegressor"]
 
 
@@ -39,6 +34,7 @@ def build_model(params: dict, columns) -> TransformedTargetRegressor:
         params: hiperparámetros de XGBRegressor.
         columns: columnas de entrenamiento, para detectar las gen_*.
     """
+
     binarias = [c for c in columns if c.startswith("gen_")]
     preprocesador = ColumnTransformer([
         ("sesgadas", Pipeline([("log", FunctionTransformer(np.log1p)),
@@ -61,6 +57,7 @@ def load_split():
     Returns:
         x_train, y_train, x_test, y_test. Los y como Series.
     """
+
     return (
         s3.read_parquet(config.X_TRAIN_PATH),
         s3.read_parquet(config.Y_TRAIN_PATH)[config.TARGET],
@@ -71,6 +68,7 @@ def load_split():
 
 def mlflow_client():
     """Apunta MLflow al servidor del proyecto y devuelve un cliente."""
+
     import mlflow
 
     mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
@@ -79,6 +77,7 @@ def mlflow_client():
 
 def load_alias(alias: str):
     """Carga la versión del modelo que tiene el alias, o None si no existe."""
+
     import mlflow.sklearn
     from mlflow.exceptions import MlflowException
 
@@ -91,6 +90,7 @@ def load_alias(alias: str):
 
 def has_champion() -> bool:
     """True si en el Model Registry hay una versión con el alias champion."""
+
     from mlflow.exceptions import MlflowException
 
     try:
@@ -102,6 +102,7 @@ def has_champion() -> bool:
 
 def champion_params() -> dict:
     """Hiperparámetros del champion actual, o DEFAULT_PARAMS si todavía no hay champion."""
+
     champion = load_alias(config.CHAMPION)
     if champion is None:
         print("ℹ️ No hay champion, se usan los hiperparámetros por defecto")
@@ -116,6 +117,7 @@ def evaluate(model, x_test: pd.DataFrame, y_test: pd.Series) -> float:
     Si el ETL cambió los géneros frecuentes, el set puede no tener alguna columna gen_*
     con la que se entrenó el modelo: se completa con 0 (película sin ese género).
     """
+
     x_test = x_test.reindex(columns=model.regressor_.feature_names_in_, fill_value=0)
     return float(mean_absolute_error(y_test, model.predict(x_test)))
 
@@ -131,8 +133,8 @@ def train_and_register(params: dict, origin: str) -> dict:
     Returns:
         La versión registrada y el run_id de MLflow.
     """
-    import datetime
 
+    import datetime
     import mlflow
     import mlflow.sklearn
     from mlflow.models import infer_signature
@@ -166,6 +168,7 @@ def train_and_register(params: dict, origin: str) -> dict:
 
 def set_champion(version: str) -> None:
     """Pasa el alias champion a la versión indicada y le saca el alias challenger."""
+
     client = mlflow_client()
     client.delete_registered_model_alias(config.MODEL_NAME, config.CHALLENGER)
     client.set_registered_model_alias(config.MODEL_NAME, config.CHAMPION, version)
@@ -173,4 +176,5 @@ def set_champion(version: str) -> None:
 
 def drop_challenger() -> None:
     """Le saca el alias challenger al modelo, sin tocar al champion."""
+
     mlflow_client().delete_registered_model_alias(config.MODEL_NAME, config.CHALLENGER)

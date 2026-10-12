@@ -5,17 +5,17 @@ Descarga el dataset de Kaggle, lo limpia, arma las features y lo separa en train
 guardando cada etapa en el bucket "data". Al terminar actualiza el asset TMDB_DATA, que
 dispara el DAG retrain_revenue_model.
 
+Corre solo una vez, apenas se levanta Airflow por primera vez (schedule "@once"), así el
+sistema arranca con datos y modelo sin intervención. Después se puede ejecutar a mano
+cuando se quiera actualizar el dataset.
+
+Acá solo se define el flujo; la lógica está en utils/data.py.
 """
 
 import datetime
 from airflow.sdk import Asset, dag, task
+from common import ML_VENV
 from utils import config
-
-# Argumentos de las tareas que corren en el virtualenv de ML, sin Airflow
-# (ver dockerfiles/airflow/Dockerfile). Solo se ejecuta el código de la función, por eso
-# utils se importa adentro. El decorador tiene que quedar escrito como
-# @task.external_python: Airflow lo busca por ese nombre para sacarlo del código.
-ML_VENV = {"python": config.ML_PYTHON, "expect_airflow": False}
 
 TMDB_DATA = Asset(config.TMDB_ASSET_URI)
 
@@ -30,13 +30,15 @@ default_args = {
     dag_id="etl_tmdb_movies",
     description="ETL del dataset de películas de TMDB",
     default_args=default_args,
-    schedule=None,
+    schedule="@once",                               # una vez, al primer arranque
+    start_date=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
     catchup=False,
+    is_paused_upon_creation=False,                  # activo sin tener que encenderlo
+    max_active_runs=1,
     dagrun_timeout=datetime.timedelta(hours=1),
     tags=["ETL", "TMDB"],
     params={"test_size": 0.2},
 )
-
 def etl_tmdb_movies():
 
     @task.external_python(task_id="obtain_original_data", **ML_VENV)
@@ -45,6 +47,7 @@ def etl_tmdb_movies():
 
         from utils import config, data, s3
 
+        s3.ensure_buckets(*config.BUCKETS)
         return s3.write_parquet(data.download_tmdb(), config.RAW_PATH)
 
     @task.external_python(task_id="clean_data", **ML_VENV)
