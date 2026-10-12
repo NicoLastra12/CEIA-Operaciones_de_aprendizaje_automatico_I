@@ -6,3 +6,5 @@ pandas==3.0.6
 numpy==2.5.3
 cloudpickle==3.1.2
 boto3==1.43.103
+xgboost==3.4.1
+skops==0.16.0

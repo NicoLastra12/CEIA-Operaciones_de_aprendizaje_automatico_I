@@ -2,8 +2,15 @@ CEIA-Operaciones_de_aprendisaje_automatico_I/
 │
 ├── airflow/                           
 │   ├── dags/
-│   │   ├── dag_prueba.py           
-│   │   └── utils/       
+│   │   ├── dag_prueba.py
+│   │   ├── etl_tmdb_movies.py
+│   │   ├── retrain_revenue_model.py
+│   │   └── utils/
+│   │       ├── __init__.py
+│   │       ├── config.py
+│   │       ├── s3.py
+│   │       ├── data.py
+│   │       └── model.py
 │   │                       
 │   ├── secrets/
 │   │   ├── variables.yaml            
@@ -15,11 +22,14 @@ CEIA-Operaciones_de_aprendisaje_automatico_I/
 ├── dockerfiles/                      
 │   ├── airflow/
 │   │   ├── Dockerfile
-│   │   └── requirements.txt          
+│   │   ├── requirements.txt
+│   │   └── requirements-ml.txt
 │   ├── fastapi/
 │   │   ├── Dockerfile
-│   │   ├── requirements.txt          
-│   │   └── app.py                    
+│   │   ├── requirements.txt
+│   │   ├── app.py
+│   │   ├── model.py
+│   │   └── schema.py
 │   ├── mlflow/
 │   │   ├── Dockerfile               
 │   │   └── requirements.txt
@@ -27,8 +37,12 @@ CEIA-Operaciones_de_aprendisaje_automatico_I/
 │       └── Dockerfile
 │
 ├── notebooks/                       
-│   └──00_prueba_conexion.ipynb
-│  
+│   └── 00_prueba_conexion.ipynb
+│
+├── tests/
+│   ├── test_api.py
+│   ├── test_data.py
+│   └── test_model.py
 │
 ├── docs/  
 │   └── arquitectura.txt
