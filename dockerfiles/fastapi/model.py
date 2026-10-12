@@ -12,6 +12,7 @@ Configuración por variables de entorno:
 - MODEL_ALIAS: alias a servir (por defecto champion)
 - MODEL_CHECK_SECONDS: cada cuántos segundos revisar el alias (por defecto 30)
 """
+
 import logging
 import os
 import threading
@@ -40,6 +41,7 @@ _lock = threading.Lock()
 
 def _champion_version() -> str:
     """Consulta en MLflow a qué versión apunta el alias. Falla si el alias no existe."""
+
     import mlflow
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -49,6 +51,7 @@ def _champion_version() -> str:
 
 def _load_version(version: str):
     """Descarga y carga una versión concreta del modelo."""
+
     import mlflow.sklearn
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -57,6 +60,7 @@ def _load_version(version: str):
 
 def _set_model(model, version: str) -> None:
     """Guarda el modelo en model_state junto con las columnas e idiomas que espera."""
+
     # Idiomas vistos en el entrenamiento; cualquier otro se trata como "otro"
     encoder = model.regressor_.named_steps["prep"].named_transformers_["categoricas"]
     model_state.update(
@@ -77,6 +81,7 @@ def refresh(force: bool = False) -> bool:
     Returns:
         True si hay un modelo cargado al terminar.
     """
+
     checked_at = model_state["checked_at"]
     if not force and checked_at is not None \
             and time.monotonic() - checked_at < MODEL_CHECK_SECONDS:
@@ -96,6 +101,7 @@ def refresh(force: bool = False) -> bool:
 
 def is_loaded() -> bool:
     """True si hay un modelo cargado."""
+
     return model_state["model"] is not None
 
 
@@ -112,6 +118,7 @@ def build_features(movie: Movie) -> pd.DataFrame:
     Returns:
         DataFrame de una fila con las columnas del modelo, en orden.
     """
+
     genres = {"gen_" + g.lower().replace(" ", "_") for g in movie.genres}
     idioma = movie.original_language.lower()
     row = {
@@ -136,4 +143,5 @@ def predict_revenue(movie: Movie) -> float:
     Returns:
         Recaudación estimada en USD. El pipeline deshace el log del target.
     """
+    
     return float(model_state["model"].predict(build_features(movie))[0])

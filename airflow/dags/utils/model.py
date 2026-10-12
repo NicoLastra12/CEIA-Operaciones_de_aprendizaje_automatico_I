@@ -89,6 +89,17 @@ def load_alias(alias: str):
         return None
 
 
+def has_champion() -> bool:
+    """True si en el Model Registry hay una versión con el alias champion."""
+    from mlflow.exceptions import MlflowException
+
+    try:
+        mlflow_client().get_model_version_by_alias(config.MODEL_NAME, config.CHAMPION)
+        return True
+    except MlflowException:
+        return False
+
+
 def champion_params() -> dict:
     """Hiperparámetros del champion actual, o DEFAULT_PARAMS si todavía no hay champion."""
     champion = load_alias(config.CHAMPION)
@@ -109,8 +120,13 @@ def evaluate(model, x_test: pd.DataFrame, y_test: pd.Series) -> float:
     return float(mean_absolute_error(y_test, model.predict(x_test)))
 
 
-def train_and_register(params: dict) -> dict:
+def train_and_register(params: dict, origin: str) -> dict:
     """Entrena un modelo nuevo, lo registra en MLflow y le pone el alias challenger.
+
+    Args:
+        params: hiperparámetros de XGBRegressor.
+        origin: de dónde salieron los hiperparámetros ("champion", "optuna"...). Queda
+            como tag de la corrida para saber cómo se entrenó cada versión.
 
     Returns:
         La versión registrada y el run_id de MLflow.
@@ -130,6 +146,7 @@ def train_and_register(params: dict) -> dict:
     mlflow.set_experiment(config.TRAIN_EXPERIMENT)
     run_name = "challenger_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     with mlflow.start_run(run_name=run_name):
+        mlflow.set_tag("origen_hiperparametros", origin)
         mlflow.log_params({k: v for k, v in params.items() if v is not None})
         mlflow.log_metric("test_mae", evaluate(model, x_test, y_test))
         info = mlflow.sklearn.log_model(

@@ -4,6 +4,7 @@ Esquemas de entrada y salida de la API.
 Los campos corresponden a las columnas de TMDB que usa el modelo. model.build_features()
 convierte una Movie en las columnas con las que se entrenó (ver airflow/dags/utils/data.py).
 """
+
 from pydantic import BaseModel, Field
 
 

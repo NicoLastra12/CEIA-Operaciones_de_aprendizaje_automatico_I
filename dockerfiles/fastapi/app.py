@@ -3,6 +3,7 @@ API REST que sirve el modelo de recaudación de películas.
 
 Documentación interactiva en http://localhost:8800/docs
 """
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 import model

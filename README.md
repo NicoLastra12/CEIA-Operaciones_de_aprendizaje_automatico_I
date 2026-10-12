@@ -63,6 +63,7 @@ Supuesto de la consigna: trabajamos para **ML Models and something more Inc.**, 
 - **Versiones fijadas.** Las librerías que guardan y cargan el modelo tienen la misma versión exacta en el entorno local y en todos los contenedores.
 - **`MLFLOW_TRACKING_URI`** definido en Airflow y FastAPI, para no configurarlo en cada DAG.
 - **La API no depende de Airflow.** El servicio `fastapi` solo espera a MLflow, y su healthcheck usa `/health`.
+- **Arranque automático.** Al levantar el sistema por primera vez, los DAGs corren solos hasta dejar un modelo en producción.
 - **Virtualenv de ML en la imagen de Airflow** (`/opt/ml-venv`). Las tareas de ML corren ahí con `@task.external_python`, con las mismas versiones que la API y sin tocar las dependencias de Airflow.
 
 ---
@@ -75,7 +76,9 @@ Supuesto de la consigna: trabajamos para **ML Models and something more Inc.**, 
 │   ├── dags/                # DAGs del proyecto (solo definen el flujo)
 │   │   ├── etl_tmdb_movies.py
 │   │   ├── retrain_revenue_model.py
-│   │   └── utils/           # Lógica de las tareas: config, s3, data, model
+│   │   ├── tune_revenue_model.py
+│   │   ├── common/          # Tareas de Airflow compartidas (duelo champion/challenger)
+│   │   └── utils/           # Lógica de las tareas, sin Airflow: config, s3, data, model, tuning
 │   ├── secrets/             # variables.yaml y connections.yaml de Airflow
 │   ├── plugins/
 │   ├── config/              # Generado por Airflow (ignorado por git)
@@ -85,7 +88,7 @@ Supuesto de la consigna: trabajamos para **ML Models and something more Inc.**, 
 │   ├── fastapi/             # API REST: app.py (endpoints), model.py (modelo), schema.py
 │   ├── mlflow/              # Servidor de MLflow
 │   └── postgres/            # Postgres + creación de la base mlflow_db
-├── notebooks/               # Experimentación local conectada a los servicios
+├── notebooks/               # EDA y entrenamiento exploratorio (00_EDA, 01_TRAIN)
 ├── tests/                   # Tests de utils y de la API (pytest)
 ├── docs/                    # Diagramas y documentación adicional
 ├── docker-compose.yaml      # Definición de todos los servicios
@@ -124,23 +127,37 @@ uv run python -m ipykernel install --user --name ceia-mlops --display-name "ceia
 
 Abrir las notebooks con Jupyter y elegir el kernel `ceia-mlops`.
 
-### 3. Verificar la conexión
+### 3. Pipeline de datos y entrenamiento (automático)
 
-1. Ejecutar `notebooks/00_prueba_conexion.ipynb`: sube un dataset de prueba a `s3://data/prueba/` y registra un experimento `prueba` en MLflow.
-2. En Airflow, activar y ejecutar el DAG `prueba_s3`: lee ese archivo desde el worker y escribe `s3://data/prueba/resumen.csv`.
+**No hace falta ejecutar nada a mano.** La primera vez que se levanta Airflow, los DAGs arrancan activos y se encadenan solos hasta dejar un modelo en producción:
 
-### 4. Pipeline de datos y reentrenamiento
-
-En Airflow (http://localhost:8080) hay dos DAGs encadenados:
+```
+etl_tmdb_movies ──(asset s3://data/final/tmdb)──► retrain_revenue_model
+ (una vez, al arrancar)                                │
+                                ¿hay champion?  ───────┤
+                                     no ▼              ▼ sí
+                            tune_revenue_model   reentrena con los
+                            (búsqueda Optuna)    hiperparámetros del champion
+                                     │                 │
+                                     └──► duelo challenger vs. champion ──► champion
+```
 
 | DAG | Se ejecuta | Qué hace |
 |---|---|---|
-| `etl_tmdb_movies` | A mano | Descarga el dataset de TMDB de Kaggle, lo limpia, arma las features y lo separa en train/test en `s3://data/final/`. Registra la corrida en el experimento `tmdb_revenue_etl` de MLflow. |
-| `retrain_revenue_model` | Solo, cuando termina el ETL (asset `s3://data/final/tmdb`) | Entrena un *challenger* con los hiperparámetros del *champion*, compara el MAE de los dos sobre el mismo set de testeo y promueve al challenger si es mejor. El modelo es `revenue_regressor` en el Model Registry; la API usa el alias `champion`. |
+| `etl_tmdb_movies` | Una vez al arrancar (`@once`), y después a mano cuando se quiera actualizar el dataset | Descarga el dataset de TMDB de Kaggle, lo limpia, arma las features y lo separa en train/test en `s3://data/final/`. Crea los buckets si no existen. Registra la corrida en el experimento `tmdb_revenue_etl`. |
+| `retrain_revenue_model` | Solo, cada vez que termina el ETL | Si ya hay champion, entrena un *challenger* con sus hiperparámetros sobre los datos nuevos. Si no hay, dispara `tune_revenue_model`. |
+| `tune_revenue_model` | Cuando no hay champion, o a mano para volver a buscar hiperparámetros | Búsqueda de hiperparámetros con Optuna (validación cruzada sobre train). Cada intento queda como run hijo en el experimento `tmdb_revenue_tuning`. Con la mejor combinación entrena un challenger. Se configura con los parámetros `n_trials` (50) y `cv_folds` (5). |
 
-Para usarlos, activar los dos DAGs y ejecutar `etl_tmdb_movies` (el porcentaje de testeo se puede cambiar con el parámetro `test_size`). La primera vez no hay champion, así que el primer modelo entrenado pasa a producción.
+En los dos últimos, el challenger compite contra el champion sobre el mismo set de testeo y pasa a producción solo si tiene menor MAE (`promote_challenger`; si no, `discard_challenger`). El modelo es `revenue_regressor` en el Model Registry de MLflow, y la API usa el alias `champion`.
 
-Los archivos de los DAGs solo definen el flujo; la lógica está en `airflow/dags/utils/`, que no depende de Airflow. En los logs de las tareas aparece `No module named 'pendulum'`: es normal, Airflow revisa si el venv de ML tiene Airflow instalado y sigue igual.
+Con el dataset completo, el ETL tarda unos 3 minutos (casi todo es la descarga de Kaggle) y la búsqueda de hiperparámetros unos pocos minutos más, según la PC.
+
+Los archivos de los DAGs solo definen el flujo; la lógica está en `airflow/dags/utils/`, que no depende de Airflow y tiene tests. En los logs de las tareas aparecen `No module named 'pendulum'` y `No package metadata was found for apache-airflow`: es normal, Airflow revisa si el venv de ML tiene Airflow instalado y sigue igual.
+
+### 4. Notebooks
+
+- `00_EDA.ipynb`: análisis exploratorio y comparación de modelos.
+- `01_TRAIN.ipynb`: entrenamiento con búsqueda de hiperparámetros, de forma interactiva. `tune_revenue_model` hace lo mismo dentro de Airflow, con el mismo espacio de búsqueda.
 
 ### 5. API del modelo
 
@@ -173,6 +190,7 @@ Prueban con datos sintéticos, sin levantar los servicios:
 
 - `test_data.py`: limpieza, features y split del ETL.
 - `test_model.py`: el pipeline del modelo.
+- `test_tuning.py`: la búsqueda de hiperparámetros.
 - `test_api.py`: los endpoints, la recarga del champion, y que la API arme las features igual que el ETL.
 
 ### Apagar

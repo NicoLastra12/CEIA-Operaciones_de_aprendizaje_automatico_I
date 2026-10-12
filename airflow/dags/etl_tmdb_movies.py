@@ -5,12 +5,10 @@ Descarga el dataset de Kaggle, lo limpia, arma las features y lo separa en train
 guardando cada etapa en el bucket "data". Al terminar actualiza el asset TMDB_DATA, que
 dispara el DAG retrain_revenue_model.
 
-Acá solo se define el flujo; la lógica está en utils/data.py.
 """
+
 import datetime
-
 from airflow.sdk import Asset, dag, task
-
 from utils import config
 
 # Argumentos de las tareas que corren en el virtualenv de ML, sin Airflow
@@ -38,11 +36,13 @@ default_args = {
     tags=["ETL", "TMDB"],
     params={"test_size": 0.2},
 )
+
 def etl_tmdb_movies():
 
     @task.external_python(task_id="obtain_original_data", **ML_VENV)
     def get_data():
         """Descarga el dataset de Kaggle y lo guarda crudo en S3."""
+
         from utils import config, data, s3
 
         return s3.write_parquet(data.download_tmdb(), config.RAW_PATH)
@@ -50,6 +50,7 @@ def etl_tmdb_movies():
     @task.external_python(task_id="clean_data", **ML_VENV)
     def clean_data(path):
         """Se queda con las películas estrenadas que tienen datos financieros."""
+
         from utils import config, data, s3
 
         return s3.write_parquet(data.clean(s3.read_parquet(path)), config.CLEAN_PATH)
@@ -57,6 +58,7 @@ def etl_tmdb_movies():
     @task.external_python(task_id="make_features", multiple_outputs=True, **ML_VENV)
     def make_features(path):
         """Arma la matriz de features y devuelve su ruta y su forma."""
+
         from utils import config, data, s3
 
         features = data.make_features(s3.read_parquet(path))
@@ -71,6 +73,7 @@ def etl_tmdb_movies():
     )
     def split_dataset(path, obs, col, test_size):
         """Separa en train/test, guarda los cuatro archivos y registra la corrida en MLflow."""
+        
         from utils import config, data, s3
 
         df = s3.read_parquet(path)

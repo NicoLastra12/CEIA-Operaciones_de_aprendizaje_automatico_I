@@ -2,12 +2,14 @@
 name = "ceia-operaciones-de-aprendizaje-automatico-i"
 version = "0.1.0"
 requires-python = ">=3.12"
+
 # Mismas versiones que dockerfiles/airflow/requirements-ml.txt y la API
 dependencies = [
     "boto3==1.43.103",
     "cloudpickle==3.1.2",
     "mlflow==3.16.1",
     "numpy==2.5.3",
+    "optuna==5.0.0",
     "pandas==3.0.6",
     "pyarrow==25.0.1",
     "scikit-learn==1.9.1",

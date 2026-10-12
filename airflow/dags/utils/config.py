@@ -13,13 +13,21 @@ ML_PYTHON = "/opt/ml-venv/bin/python"
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
 ETL_EXPERIMENT = "tmdb_revenue_etl"
 TRAIN_EXPERIMENT = "tmdb_revenue_regressor"
+TUNING_EXPERIMENT = "tmdb_revenue_tuning"
 MODEL_NAME = "revenue_regressor"
 CHAMPION = "champion"
 CHALLENGER = "challenger"
 
+# Búsqueda de hiperparámetros (valores por defecto; el DAG los deja cambiar al ejecutarlo)
+TUNING_TRIALS = 50
+TUNING_FOLDS = 5
+
 # Fuente de datos
 KAGGLE_DATASET = "asaniczka/tmdb-movies-dataset-2023-930k-movies"
 KAGGLE_FILE = "TMDB_movie_dataset_v11.csv"
+
+# Buckets que usa el proyecto: datos y artefactos de MLflow
+BUCKETS = ("data", "mlflow")
 
 # Rutas en el bucket "data", una por etapa del ETL
 RAW_PATH = "s3://data/raw/tmdb_movies.parquet"
